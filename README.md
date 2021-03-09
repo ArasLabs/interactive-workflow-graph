@@ -7,8 +7,6 @@ Release          | Notes                        | Supported Aras Versions
 -----------------|------------------------------|-------------------
 [v1](https://github.com/ArasLabs/interactive-workflow-graph/releases/tag/v1.0)   | Initial Release              | 12SP10, 12SP11, 12SP12
 
-*add link to version location in repository on each row
-
 
 ## Important!
 **Always back up your code tree and database before applying an import package or code tree patch!**
