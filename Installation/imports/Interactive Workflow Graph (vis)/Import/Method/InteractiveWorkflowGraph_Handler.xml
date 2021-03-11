@@ -1,0 +1,335 @@
+﻿<AML>
+ <Item type="Method" id="BED65AB3E2D0436690C1E810F347BA06" action="add">
+  <execution_allowed_to keyed_name="World" type="Identity">A73B655731924CD0B027E4F4D5FCC0A9</execution_allowed_to>
+  <method_code><![CDATA[var currentItem = document.thisItem;
+var inn = aras.newIOMInnovator();
+var i18nCtx = inn.getI18NSessionContext();
+var currentItemID = currentItem.getID();
+var currentItemType = currentItem.getType();
+var currentUserIdentities = aras.getIdentityList();
+var wfName = "";
+var wfID = "";
+var nodes = null;
+var edges = null;
+
+window.container = document.getElementById("mynetwork");  //id of html field on form
+window.options = {nodes: {shape: "box",  size: 12}};
+window.data = null;
+window.network = null;
+window.workflowProcessId = null;
+
+const nodeColorPending = "#f7f7f7";
+const nodeColorDone = "#5cb85c";
+const nodeColorActiveVote = "#f0ad4e";
+const nodeColorActive = "#02a5f8";
+const nodeColorStartOrEnd = "#c5c5c5";
+
+var graphContainerWidth = 100;  // dummy value, will get calculated
+var graphContainerHeight = 100; // dummy value, will get calculated
+
+//----
+function fixGraphContainerSize() {
+    function getOffset(el) {
+        const rect = el.getBoundingClientRect();
+        return {
+            left: rect.left + window.scrollX,
+            top: rect.top + window.scrollY
+        };
+    }
+    var padding = 20;
+    var w,h;
+    var elem = document.getElementById("graphContainer");
+    if (elem) {
+        graphContainerWidth = window.innerWidth - getOffset(elem).left - padding;
+        graphContainerHeight = window.innerHeight - getOffset(elem).top - padding;
+        graphContainerWidth = graphContainerWidth.toFixed(0);
+        graphContainerHeight = graphContainerHeight.toFixed(0);
+        elem.style.width = graphContainerWidth+"px";
+        elem.style.height = graphContainerHeight+"px";
+    }
+}
+fixGraphContainerSize(); // run on form load, as well
+
+//----
+function grid_onToolbarClick(tbItem) {
+	switch (tbItem.getId()) {
+		case "reload_graph":
+		    window.network.destroy();
+            fixGraphContainerSize();
+		    populateAndDrawWorkflowGraph();
+			break;
+		case "open_workflow_signoffs":
+            var ProcessItem = aras.getItemById('Workflow Process',window.workflowProcessId);
+            if (!(ProcessItem)) {return;}
+            var ProcessTypeID = ProcessItem.getAttribute('type');
+            var report = aras.getItemByKeyedName('Report','Workflow Process History');
+            aras.runReport(report,ProcessTypeID,ProcessItem);
+			break;
+		case "open_workflow_process":
+    	    aras.uiShowItem("Workflow Process", window.workflowProcessId);
+			break;
+	}
+}
+
+//----
+function getEdgeTitleHTMLfromPathItem(path) {
+    var edgeTitle = path.getProperty("label", path.getProperty("name")); 
+    if (edgeTitle === "") {return "";}
+
+    var html = ""; 
+	html += '<p border="0" cellspacing="0" cellpadding="0" style="font-family:helvetica;font-size:8pt;padding:2px;">';
+	html += edgeTitle+'</p>';
+	
+    return html;
+}
+
+//----
+function getNodeTitleHTMLfromActivityItem(activityItem) {
+    var actAssignments = activityItem.getRelationships("Activity Assignment");
+    if (actAssignments.getItemCount() <=0) {
+        return "";
+    }
+    var html = ""; 
+	html += '<table border="0" cellspacing="0" cellpadding="0" width="500px" style="font-family:helvetica;font-size:8pt;padding:2px;">';
+	html += ' <tr>';
+	html += '  <td style="font-weight:bold;">Assigned To</td>';
+	html += '  <td style="font-weight:bold;">Completed By</td>';
+	html += '  <td style="font-weight:bold;">How Voted</td>';
+	html += '  <td style="font-weight:bold;">When</td>';
+	html += '  <td style="font-weight:bold;">Comments</td>';
+	html += ' </tr>';
+	
+    for (a=0; a<actAssignments.getItemCount(); a++) {
+        var assignment = actAssignments.getItemByIndex(a);
+    	html += ' <tr>';
+    	html += ' <td>'+assignment.getPropertyAttribute("related_id","keyed_name","")+'</td>';
+    	html += ' <td>'+assignment.getPropertyAttribute("closed_by","keyed_name","")+'</td>';
+    	html += ' <td>'+assignment.getProperty("path","")+'</td>';
+    	var dt = assignment.getProperty("closed_on","");
+    	if (dt !== "") {
+    	    dt = i18nCtx.ConvertFromNeutral(dt,"date","short_date_time");
+    	}
+    	html += ' <td>'+dt+'</td>';
+    	html += ' <td>'+assignment.getProperty("comments","")+'</td>';
+    	html += ' </tr>';
+    }
+	html += '</table>';
+    return html;
+}
+
+//----
+function buildToolbarXML() {
+    //##TODO## I18N support to button labels
+	 var  xml='' +
+	 '<toolbarapplet buttonstyle="windows"  buttonsize="26,25" font="Arial-bold-10">' +
+	 '<toolbar id="toolbar">' +
+		'<button text="Open Workflow Process" id="open_workflow_process" image="../images/WorkflowProcess.svg" tooltip="Open Workflow Process" disabled="false" />' +
+		' <button text="Open Workflow Signoffs Report" id="open_workflow_signoffs" image="../images/UpdateActivity.svg" tooltip="Open Workflow Signoffs Report" disabled="false" />' +
+        ' <separator/>' +
+		'<button text="Reload" id="reload_graph" image="../images/Refresh.svg" tooltip="Reload" disabled="false" />' +
+	 '</toolbar>' +
+     '</toolbarapplet>';
+    return xml;
+}
+
+
+clientControlsFactory.createControl("Aras.Client.Controls.Public.Toolbar", { id: "top_toolbar", connectId: "toolbarContainer", ImageBase: "../../../cbin/" }, function(control) {
+	tbControl = control;
+	clientControlsFactory.on(tbControl, {
+		"onClick": grid_onToolbarClick
+	});
+	//tbControl.startup();
+
+	document.tbControl = tbControl;
+	//tbControl.loadXml(aras.getI18NXMLResource("FlatGrid_from_QueryDef_toolbar.xml", aras.getBaseURL() + "/Modules/custom/FlatGridView/"));
+	tbControl.loadToolbarFromStr(buildToolbarXML());
+	tbControl.show();
+});
+
+//----
+function populateAndDrawWorkflowGraph() {
+
+  // populate workflow graph control - using vis-network JS library
+  require(['../customer/vis/vis-network.min.js'], function (vis) {
+    nodes = new vis.DataSet();
+    edges = new vis.DataSet();
+    
+    var wf = inn.newItem("Workflow", "get");
+    wf.setAttribute("select", "related_id(id)");
+    wf.setProperty("source_id", currentItemID);
+    wf.setPropertyAttribute("related_id", "condition", "is not null");
+    wf = wf.apply();
+    if(wf.getItemCount() == 1) {
+        var processID = wf.getProperty("related_id", "");
+        wfID = wf.getID();
+        wfName = wf.getPropertyAttribute("related_id", "keyed_name");
+        
+        var activityItem = inn.newItem("Activity", "get");
+        activityItem.setAttribute("select", "id, label, name, x, y, state,is_start,is_end,active_date,close_date");
+        activityItem.setPropertyAttribute("cloned_as", "condition", "is null");
+        var pathItem = activityItem.createRelationship("Workflow Process Path", "get");
+        pathItem.setAttribute("select", "source_id(id), related_id(id), label, name, is_complete");
+        
+        var activityAssignment = activityItem.createRelationship("Activity Assignment","get");
+        activityAssignment.setAttribute("select","related_id(name),closed_on,closed_by,is_disabled,path,comments,voting_weight,is_required,path");
+        
+        var wfProcessActs = inn.newItem("Workflow Process Activity", "get");
+        wfProcessActs.setAttribute("select", "id, related_id,source_id");
+        wfProcessActs.setProperty("source_id", processID);
+        wfProcessActs.setRelatedItem(activityItem);
+        wfProcessActs = wfProcessActs.apply();
+        
+        if(wfProcessActs.isError()) {
+            Aras.AlertError(wfProcessActs.getErrorString());
+            return;
+        }
+        
+        var actCount = wfProcessActs.getItemCount();
+        var activeNodeID = 0;
+        var startNodeID = 0;
+        var startNodeLabel = "";
+        if (actCount > 0) {
+            window.workflowProcessId = wfProcessActs.getItemByIndex(0).getProperty("source_id");
+        }
+        
+        for(var i=0; i<actCount; i++) {
+            var activity = wfProcessActs.getItemByIndex(i).getRelatedItem();
+            var itemID = activity.getID();
+            var label = activity.getProperty("label", activity.getProperty("name")); 
+            var isStartActivity = (activity.getProperty("is_start","0") == "1");
+            var isEndActivity = (activity.getProperty("is_end","0") == "1");
+            var xPos = activity.getProperty("x");
+            var yPos = activity.getProperty("y");
+            var state = activity.getProperty("state");
+            var activeDateStr = activity.getProperty("active_date","");
+            var closeDateStr = activity.getProperty("close_date","");
+            var activeAssignment = "";
+            var nodeColor = nodeColorPending;
+
+            if (isStartActivity) { startNodeID = itemID; startNodeLabel = label;}
+            
+            //activity.fetchRelationships("Activity Assignment");
+            
+            if (isStartActivity || isEndActivity) {
+                nodeColor = nodeColorStartOrEnd;
+            }
+            else {
+                
+                if(state == 'Active') {
+                    // detect if current user is assigned
+                    var actAssignments = activity.getRelationships("Activity Assignment");
+                    var userIsAssigned = false;
+                    for (a=0; a<actAssignments.getItemCount() && !userIsAssigned; a++) {
+                        var assignment = actAssignments.getItemByIndex(a);
+                        if (assignment.getProperty("is_disabled","0") === "0" && assignment.getProperty("closed_on","") === "") {
+                            var assignedIdentityId = assignment.getProperty("related_id","");
+                            if (currentUserIdentities.indexOf(assignedIdentityId) >= 0) {
+                                activeAssignment = assignment.getID();
+                                userIsAssigned = true;
+                            }
+                        }
+                    }
+    
+                    if(userIsAssigned) {
+                        nodeColor = nodeColorActiveVote;
+                        activeNodeID = itemID;
+                    } else {
+                        nodeColor = nodeColorActive;
+                    }
+                } else if(state == 'Closed') {
+                    nodeColor = nodeColorDone;
+                }
+            }
+
+            var nodeTip = getNodeTitleHTMLfromActivityItem(activity);
+            if (nodeTip !== "") {
+                nodes.add({ id: itemID, fixed: true, label: label, title: nodeTip, shape: 'box', color: nodeColor, x: xPos , y: yPos, font: { color: "black", align: "top" }, activeAssignment: activeAssignment});
+            }
+            else {
+                nodes.add({ id: itemID, fixed: true, label: label, shape: 'box', color: nodeColor, x: xPos , y: yPos, font: { color: "black", align: "top" }, activeAssignment: activeAssignment});
+            }
+
+            var paths = activity.getRelationships("Workflow Process Path");
+            var pathsCount = paths.getItemCount();
+            for(var j=0; j<pathsCount; j++) {
+                var path = paths.getItemByIndex(j);
+                var sourceID = path.getProperty("source_id");
+                var relatedID = path.getProperty("related_id");
+                var isComplete = path.getProperty("is_complete");
+                var edgeColor = "#292b2c"; // Normal
+                if(isComplete == '1') {
+                    edgeColor = "#5cb85c";
+                } 
+                
+                var edgeTip = getEdgeTitleHTMLfromPathItem(path);
+                if (edgeTip !== "") {
+                    edges.add({ from: sourceID, to: relatedID, title: edgeTip, color: edgeColor, smooth: true, arrows: { to: {enabled: true, type: 'arrow'}}, font: { align: "bottom" }});
+                }
+                else {
+                    edges.add({ from: sourceID, to: relatedID, color: edgeColor, smooth: true, arrows: { to: {enabled: true, type: 'arrow'}}, font: { align: "bottom" }});
+                }
+            }
+        }
+        
+        // create a network with data
+        window.data = {
+          nodes: nodes,
+          edges: edges,
+        };
+        var network = new vis.Network(window.container, window.data, window.options);
+        window.network = network;
+        
+        // when done loading. initially position network (wf grpah) to top left (isch)
+        network.once("stabilizationIterationsDone", function() {
+            var xOffs = startNodeLabel.length * 5;  // assume a character is 5px wide
+            network.focus(startNodeID);
+            network.moveTo({offset:{x:- (0.5 * graphContainerWidth-xOffs),y:- (0.5 * graphContainerHeight)}})
+            //network.focus(activeNodeID);
+        });
+
+        // network.on("click", function (params) {
+        //   var selectedNode = nodes.get(params.nodes[0]);
+        // });
+        
+        network.on("doubleClick", function (params) {
+          var selectedNode = nodes.get(params.nodes[0]);
+          if(selectedNode.activeAssignment !== ""){
+              // current user has active assignment - show voting dialog
+                var VoteDialogParams = {};
+    			VoteDialogParams.aras = aras;
+    			VoteDialogParams.activity = aras.getItemById("Activity", selectedNode.id, 1);
+    			VoteDialogParams.wflName = wfName;
+    			VoteDialogParams.wflId = wfID;
+    			VoteDialogParams.assignmentId = selectedNode.activeAssignment;
+    			VoteDialogParams.itemId = currentItemID;
+    			VoteDialogParams.dialogWidth = 700;
+    			VoteDialogParams.dialogHeight = 500;
+    			VoteDialogParams.resizable = true;
+    			VoteDialogParams.scroll = true;
+    			VoteDialogParams.content = "InBasket/InBasket-VoteDialog.aspx";
+    			aras.getMostTopWindowWithAras(window).ArasModules.Dialog.show("iframe", VoteDialogParams).promise.then(function (res) {
+    			    var id = currentItemID;
+                    var type = currentItemType;
+                    aras.removeFromCache(id);
+                    var w = aras.uiFindWindowEx(id);
+                    if (w)
+                    {
+                      aras.getItemById(type, id, 0);
+                      aras.uiReShowItem(id, id, "tab view");
+                    }
+    			});
+          }
+        });
+    } else {
+        document.getElementById("mynetwork").innerHTML = "No Workflow exists at this time.";
+    }
+});
+}
+
+populateAndDrawWorkflowGraph();
+window.addEventListener("onresize", fixGraphContainerSize);
+]]></method_code>
+  <method_type>JavaScript</method_type>
+  <name>InteractiveWorkflowGraph_Handler</name>
+ </Item>
+</AML>

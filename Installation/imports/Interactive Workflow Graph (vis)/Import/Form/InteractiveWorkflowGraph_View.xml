@@ -1,0 +1,68 @@
+﻿<AML>
+ <Item type="Form" id="15A88DE00831426C9CDC46E8EE61484A" action="add">
+  <category_form>0</category_form>
+  <height>234</height>
+  <stylesheet><![CDATA[../styles/default.css]]></stylesheet>
+  <width>699</width>
+  <name>InteractiveWorkflowGraph_View</name>
+  <Relationships>
+   <Item type="Body" id="FA5108F495D54DF697CE35E7A8EA990B" action="add">
+    <sort_order>128</sort_order>
+    <source_id keyed_name="InteractiveWorkflowGraph_View" type="Form">15A88DE00831426C9CDC46E8EE61484A</source_id>
+    <Relationships>
+     <Item type="Field" id="509674CB8F014124B816D79AD5F405AA" action="add">
+      <border_width>0</border_width>
+      <display_length_unit>px</display_length_unit>
+      <field_type>html</field_type>
+      <font_color>#000000</font_color>
+      <font_family>arial, helvetica, sans-serif</font_family>
+      <font_size>8pt</font_size>
+      <font_weight>bold</font_weight>
+      <html_code><![CDATA[<style>
+#mynetwork {
+  width: 100%;
+  height: 100%;
+  border: 1px solid lightgray;
+}
+</style>
+	<table style="width: 100%; height: 100%;" cellspacing="0" cellpadding="0">
+		<tr style="vertical-align: top;">
+			<td id="toolbarContainer" style="height: 30px;">
+			</td>
+		</tr>
+		<tr style="vertical-align: top;">
+			<td id="graphContainer">
+                         <div id="mynetwork"></div>
+			</td>
+		</tr>
+	</table>
+
+
+]]></html_code>
+      <is_disabled>0</is_disabled>
+      <is_visible>1</is_visible>
+      <label_position>top</label_position>
+      <list_no_blank>0</list_no_blank>
+      <sort_order>128</sort_order>
+      <source_id keyed_name="FA5108F495D54DF697CE35E7A8EA990B" type="Body">FA5108F495D54DF697CE35E7A8EA990B</source_id>
+      <source_source_id keyed_name="InteractiveWorkflowGraph_View" type="Form">15A88DE00831426C9CDC46E8EE61484A</source_source_id>
+      <tab_stop>1</tab_stop>
+      <x>0</x>
+      <y>0</y>
+      <name>htmlNetwork</name>
+     </Item>
+    </Relationships>
+   </Item>
+   <Item type="Form Event" id="BA28535ECA7445A9A97EC60A640D562C" action="add">
+    <form_event>onformpopulated</form_event>
+    <related_id keyed_name="InteractiveWorkflowGraph_Handler" type="Method">
+     <Item type="Method" action="get" select="id">
+      <name>InteractiveWorkflowGraph_Handler</name>
+     </Item>
+    </related_id>
+    <sort_order>128</sort_order>
+    <source_id keyed_name="InteractiveWorkflowGraph_View" type="Form">15A88DE00831426C9CDC46E8EE61484A</source_id>
+   </Item>
+  </Relationships>
+ </Item>
+</AML>

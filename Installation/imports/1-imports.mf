@@ -1,0 +1,3 @@
+<imports>
+  <package name="Interactive Workflow Graph (vis)" path="Interactive Workflow Graph (vis)\Import" />
+</imports>
